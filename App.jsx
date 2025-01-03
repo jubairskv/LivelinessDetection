@@ -1,41 +1,61 @@
 import React, {useEffect, useState} from 'react';
-import {Button, StyleSheet, View} from 'react-native';
+import {Button, StyleSheet, View, Text} from 'react-native';
 import {
   Camera,
   useCameraPermission,
   useCameraDevice,
-} from 'react-native-vision-camera'; // Correct imports//
-// import addNewContact from './addNewContact'; // Import the addNewContact function
+} from 'react-native-vision-camera';
+import {useFrameProcessor} from 'react-native-vision-camera';
+import {runOnJS} from 'react-native-reanimated';
+import {scanFaces} from 'react-native-vision-camera-face-detector'; // Import face detection scanner
 import PermissionsPage from './src/Components/PermissionsPage';
-import NoCameraDeviceError from './src/Components/noCamerError'; // Import the new error component
+import NoCameraDeviceError from './src/Components/noCamerError';
 
 const App = () => {
-  // Camera permissions handling
   const {hasPermission, requestPermission} = useCameraPermission();
   const device = useCameraDevice('front');
   const [permissionRequested, setPermissionRequested] = useState(false);
+  const [faces, setFaces] = useState([]);
 
   useEffect(() => {
-    // Request permission when the app loads if not granted
-    if (!permissionRequested) {
+    if (!hasPermission && !permissionRequested) {
       requestPermission();
       setPermissionRequested(true);
     }
-  }, [permissionRequested]);
+  }, [hasPermission, permissionRequested, requestPermission]);
 
-  // If camera permission is not granted, show permission page
+  // Frame processor for face detection
+  const frameProcessor = useFrameProcessor(frame => {
+    'worklet';
+    try {
+      const detectedFaces = scanFaces(frame);
+      runOnJS(setFaces)(detectedFaces);
+    } catch (error) {
+      console.error('Error in frame processor:', error);
+    }
+  }, []);
+
   if (!hasPermission)
     return <PermissionsPage onRequestPermission={requestPermission} />;
-
-  // If no camera device is found, show error
   if (device == null) return <NoCameraDeviceError />;
 
   return (
     <View style={styles.container}>
-      {/* Camera component */}
-      <Camera style={StyleSheet.absoluteFill} device={device} isActive={true} />
-      {/* Add contact button */}
-      {/* <Button title="Add Contact" onPress={addNewContact} /> */}
+      <Camera
+        style={StyleSheet.absoluteFill}
+        device={device}
+        isActive={true}
+        frameProcessor={frameProcessor}
+        frameProcessorFps={5}
+      />
+
+      <View style={styles.overlay}>
+        <Text style={styles.faceText}>
+          {faces.length > 0
+            ? `Faces detected: ${faces.length}`
+            : 'No faces detected'}
+        </Text>
+      </View>
     </View>
   );
 };
@@ -45,6 +65,17 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  overlay: {
+    position: 'absolute',
+    bottom: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    padding: 10,
+    borderRadius: 10,
+  },
+  faceText: {
+    color: 'white',
+    fontSize: 16,
   },
 });
 
