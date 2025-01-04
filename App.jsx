@@ -1,5 +1,5 @@
 import React from 'react';
-import LivelinessDetection from './src/Components/livelinessDetection';
+import LivelinessDetection from './src/Components/LivelinessScreen';
 const App = () => {
   return <LivelinessDetection />;
 };
